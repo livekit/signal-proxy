@@ -26,12 +26,12 @@ func TestE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	proxy, err := server.NewServer(&config.Config{DestinationHost: "localhost:7001", Port: 7003})
+	proxy, err := server.NewServer(&config.Config{DestinationHost: "localhost:7001", Port: 9001})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	participant, err := test_utils.NewLiveKitParticipant(7001)
+	participant, err := test_utils.NewLiveKitParticipant(9001)
 	if err != nil {
 		t.Fatal(err)
 	}

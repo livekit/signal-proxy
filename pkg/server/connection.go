@@ -33,15 +33,17 @@ func (c *Connection) Run() error {
 
 	destDialer := websocket.Dialer{}
 	destHeaders := http.Header{}
+
 	// Copy selected headers from the original request
-	// for k, v := range c.request.Header {
-	// 	if strings.ToLower(k) == "your-header-to-copy" {
-	// 		destHeaders.Set(k, v[0])
-	// 	}
-	// }
+	headersToCopy := map[string]bool{"Authorization": true}
+	for k, v := range c.request.Header {
+		if _, ok := headersToCopy[k]; ok {
+			destHeaders.Set(k, v[0])
+		}
+	}
 
 	queryParams := c.request.URL.RawQuery
-	destURL := url.URL{Scheme: "ws", Host: *c.destinationHost, Path: "/", RawQuery: queryParams}
+	destURL := url.URL{Scheme: "ws", Host: *c.destinationHost, Path: c.request.URL.Path, RawQuery: queryParams}
 
 	var destConn *websocket.Conn
 	var destErr error
