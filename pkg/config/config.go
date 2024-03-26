@@ -8,9 +8,16 @@ import (
 )
 
 type Config struct {
-	DestinationHost string   `yaml:"destinationHost"`
-	AllowedHosts    []string `yaml:"allowedHosts"`
-	Port            uint32
+	DestinationHost string      `yaml:"destinationHost"`
+	AllowedHosts    []string    `yaml:"allowedHosts"`
+	Port            uint32      `yaml:"port"`
+	ICEServers      []ICEServer `yaml:"iceServers"`
+}
+
+type ICEServer struct {
+	Urls       []string `yaml:"urls,omitempty"`
+	Username   string   `yaml:"username,omitempty"`
+	Credential string   `yaml:"credential,omitempty"`
 }
 
 func LoadConfig() (*Config, error) {

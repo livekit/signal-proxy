@@ -2,61 +2,85 @@ package test_utils
 
 import (
 	"fmt"
-	"os/exec"
+	"time"
+
+	"github.com/livekit/protocol/livekit"
+	lksdk "github.com/livekit/server-sdk-go/v2"
 )
 
 type LiveKitParticipant struct {
-	port uint32
-	cmd  *exec.Cmd
+	port       uint32
+	audioTrack string
+	room       *lksdk.Room
 }
 
-func NewLiveKitParticipant(port uint32) (*LiveKitParticipant, error) {
+func NewLiveKitParticipant(port uint32, audioTrack string) (*LiveKitParticipant, error) {
 	return &LiveKitParticipant{
-		port: port,
+		port:       port,
+		audioTrack: audioTrack,
 	}, nil
 }
 
-func (p *LiveKitParticipant) RunAudioPublisher() error {
-	p.cmd = exec.Command("livekit-cli",
-		"load-test",
-		"--audio-publishers",
-		"1",
-		"--url",
-		fmt.Sprintf("http://localhost:%d", p.port),
-		"--api-key",
-		"devkey",
-		"--api-secret",
-		"secret",
+func (p *LiveKitParticipant) ConnectAndPublish() error {
+	url := fmt.Sprintf("ws://127.0.0.1:%d", p.port)
+	apiKey := "devkey"
+	apiSecret := "secret"
+	roomName := "test-room"
+	identity := "test-participant"
+	roomCB := &lksdk.RoomCallback{
+		OnDisconnected: func() {
+			fmt.Println("Disconnected from room")
+		},
+	}
+	fmt.Println("Connecting to room")
+	room, err := lksdk.ConnectToRoom(url, lksdk.ConnectInfo{
+		APIKey:              apiKey,
+		APISecret:           apiSecret,
+		RoomName:            roomName,
+		ParticipantIdentity: identity,
+	}, roomCB)
+	p.room = room
+
+	if err != nil {
+		return fmt.Errorf("failed to connect to room: %w", err)
+	}
+
+	fmt.Println("Connected to room")
+
+	doneSignal := make(chan struct{})
+
+	track, err := lksdk.NewLocalFileTrack(p.audioTrack,
+		// control FPS to ensure synchronization
+		lksdk.ReaderTrackWithFrameDuration(20*time.Millisecond),
+		lksdk.ReaderTrackWithOnWriteComplete(func() {
+			close(doneSignal)
+		}),
 	)
 
-	stdoutPipe, err := p.cmd.StdoutPipe()
 	if err != nil {
-		fmt.Printf("Error creating stdout pipe: %v\n", err)
+		return fmt.Errorf("failed to open track %w", err)
+	}
+
+	fmt.Print("Publishing track")
+	if _, err = room.LocalParticipant.PublishTrack(track, &lksdk.TrackPublicationOptions{
+		Name:   "audio_track",
+		Source: livekit.TrackSource_MICROPHONE,
+	}); err != nil {
 		return err
 	}
+	fmt.Print("Published track")
 
-	stderrPipe, err := p.cmd.StderrPipe()
-	if err != nil {
-		fmt.Printf("Error creating stderr pipe: %v\n", err)
-		return err
-	}
-
-	go streamOutput(stdoutPipe, "livekit-cli-stdout")
-	go streamOutput(stderrPipe, "livekit-cli-stdout")
-
-	err = p.cmd.Start()
-	if err != nil {
-		return fmt.Errorf("failed to start livekit-cli: %w", err)
-	}
-
-	err = p.cmd.Wait()
-	if err != nil {
-		return fmt.Errorf("livekit-cli exited with error: %w", err)
+	select {
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("timed out waiting for track to finish")
+	case <-doneSignal:
 	}
 
 	return nil
 }
 
-func (p *LiveKitParticipant) Stop() {
-	p.cmd.Process.Kill()
+func (p *LiveKitParticipant) Disconnect() {
+	if p.room != nil {
+		p.room.Disconnect()
+	}
 }

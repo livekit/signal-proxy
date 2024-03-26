@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  livekit-basic:
+    image: livekit/livekit-server:latest
+    entrypoint: ["./livekit-server", "--dev"]
+    environment:
+      LIVEKIT_CONFIG: |
+        logging:
+          level: debug
+        port: 7880
+        bind_addresses:
+          - 127.0.0.1
+        rtc:
+          udp_port: 7881-7882
+
+    ports:
+      - "7880:7880" # HTTP/WS port
+      - "7881-7882:7881-7882" # UDP port

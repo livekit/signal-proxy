@@ -1,25 +1,45 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/livekit/protocol/livekit"
+	"github.com/livekit/signal-proxy/pkg/config"
+	"google.golang.org/protobuf/proto"
 )
 
 type Connection struct {
-	writer          http.ResponseWriter
-	request         *http.Request
-	destinationHost *string
+	writer            http.ResponseWriter
+	request           *http.Request
+	destinationHost   *string
+	rewriteIceServers []*livekit.ICEServer
 }
 
-func NewConnection(writer http.ResponseWriter, request *http.Request, destinationHost *string) (*Connection, error) {
+func NewConnection(
+	config *config.Config,
+	writer http.ResponseWriter,
+	request *http.Request,
+) (*Connection, error) {
+
+	newIceServers := make([]*livekit.ICEServer, 0)
+	for _, iceServer := range config.ICEServers {
+		newIceServers = append(newIceServers, &livekit.ICEServer{
+			Urls:       iceServer.Urls,
+			Username:   iceServer.Username,
+			Credential: iceServer.Credential,
+		})
+	}
+
 	return &Connection{
-		writer:          writer,
-		request:         request,
-		destinationHost: destinationHost,
+		writer:            writer,
+		request:           request,
+		destinationHost:   &config.DestinationHost,
+		rewriteIceServers: newIceServers,
 	}, nil
 }
 
@@ -63,14 +83,60 @@ func (c *Connection) Run() error {
 	}
 	defer destConn.Close()
 
-	go copyMessages(conn, destConn)
-	copyMessages(destConn, conn)
+	go c.copyMessages(destConn, conn)
+	c.copyServerMessages(conn, destConn)
 	return nil
 }
 
-func copyMessages(dst, src *websocket.Conn) {
+func (c *Connection) copyServerMessages(dst, src *websocket.Conn) {
 	for {
 		mt, message, err := src.ReadMessage()
+
+		if err != nil {
+			break
+		}
+
+		newMessage, err := c.modifyServerMessage(message)
+
+		if err := dst.WriteMessage(mt, newMessage); err != nil {
+			print("Error writing message to destination")
+			break
+		}
+	}
+}
+
+func (c *Connection) modifyServerMessage(msg []byte) ([]byte, error) {
+	signalResponse := &livekit.SignalResponse{}
+	err := proto.Unmarshal(msg, signalResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal SignalResponse message: %w", err)
+	}
+
+	updated := false
+	if join := signalResponse.GetJoin(); join != nil {
+		join.IceServers = c.rewriteIceServers
+		updated = true
+	} else if reconnect := signalResponse.GetReconnect(); reconnect != nil {
+		reconnect.IceServers = c.rewriteIceServers
+		updated = true
+	}
+
+	// Save some work if we didn't update anything
+	if !updated {
+		return msg, nil
+	}
+
+	modifiedMessage, err := proto.Marshal(signalResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal reconnect SignalResponse message: %w", err)
+	}
+	return modifiedMessage, nil
+}
+
+func (c *Connection) copyMessages(dst, src *websocket.Conn) {
+	for {
+		mt, message, err := src.ReadMessage()
+
 		if err != nil {
 			break
 		}
