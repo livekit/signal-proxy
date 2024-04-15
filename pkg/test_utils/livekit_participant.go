@@ -6,18 +6,21 @@ import (
 
 	"github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
+	"github.com/pion/webrtc/v3"
 )
 
 type LiveKitParticipant struct {
 	port       uint32
 	audioTrack string
 	room       *lksdk.Room
+	forceRelay bool
 }
 
-func NewLiveKitParticipant(port uint32, audioTrack string) (*LiveKitParticipant, error) {
+func NewLiveKitParticipant(port uint32, audioTrack string, forceRelay bool) (*LiveKitParticipant, error) {
 	return &LiveKitParticipant{
 		port:       port,
 		audioTrack: audioTrack,
+		forceRelay: forceRelay,
 	}, nil
 }
 
@@ -33,12 +36,18 @@ func (p *LiveKitParticipant) ConnectAndPublish() error {
 		},
 	}
 	fmt.Println("Connecting to room")
+	iceTransportPolicy := webrtc.ICETransportPolicyAll
+	if p.forceRelay {
+		iceTransportPolicy = webrtc.ICETransportPolicyRelay
+	}
+
 	room, err := lksdk.ConnectToRoom(url, lksdk.ConnectInfo{
 		APIKey:              apiKey,
 		APISecret:           apiSecret,
 		RoomName:            roomName,
 		ParticipantIdentity: identity,
-	}, roomCB)
+	}, roomCB, lksdk.WithICETransportPolicy(iceTransportPolicy))
+
 	p.room = room
 
 	if err != nil {
