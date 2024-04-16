@@ -14,10 +14,10 @@ import (
 )
 
 type Connection struct {
-	writer            http.ResponseWriter
-	request           *http.Request
-	destinationHost   *string
-	rewriteIceServers []*livekit.ICEServer
+	writer                http.ResponseWriter
+	request               *http.Request
+	destinationLiveKitURL string
+	rewriteIceServers     []*livekit.ICEServer
 }
 
 func NewConnection(
@@ -36,10 +36,10 @@ func NewConnection(
 	}
 
 	return &Connection{
-		writer:            writer,
-		request:           request,
-		destinationHost:   &config.DestinationHost,
-		rewriteIceServers: newIceServers,
+		writer:                writer,
+		request:               request,
+		destinationLiveKitURL: config.DestinationLiveKitURL,
+		rewriteIceServers:     newIceServers,
 	}, nil
 }
 
@@ -63,7 +63,13 @@ func (c *Connection) Run() error {
 	}
 
 	queryParams := c.request.URL.RawQuery
-	destURL := url.URL{Scheme: "ws", Host: *c.destinationHost, Path: c.request.URL.Path, RawQuery: queryParams}
+	parsed, err := url.Parse(c.destinationLiveKitURL)
+	if err != nil {
+		return fmt.Errorf("error parsing destination URL: %w", err)
+	}
+	host := parsed.Host
+	scheme := parsed.Scheme
+	destURL := url.URL{Scheme: scheme, Host: host, Path: c.request.URL.Path, RawQuery: queryParams}
 
 	var destConn *websocket.Conn
 	var destErr error
@@ -97,6 +103,10 @@ func (c *Connection) copyServerMessages(dst, src *websocket.Conn) {
 		}
 
 		newMessage, err := c.modifyServerMessage(message)
+		if err != nil {
+			print("Error modifying message")
+			break
+		}
 
 		if err := dst.WriteMessage(mt, newMessage); err != nil {
 			print("Error writing message to destination")

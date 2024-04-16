@@ -8,10 +8,9 @@ import (
 )
 
 type Config struct {
-	DestinationHost string      `yaml:"destinationHost"`
-	AllowedHosts    []string    `yaml:"allowedHosts"`
-	Port            uint32      `yaml:"port"`
-	ICEServers      []ICEServer `yaml:"iceServers"`
+	DestinationLiveKitURL string      `yaml:"destinationLiveKitURL"`
+	Port                  uint32      `yaml:"port"`
+	ICEServers            []ICEServer `yaml:"iceServers"`
 }
 
 type ICEServer struct {
@@ -52,8 +51,8 @@ func LoadConfig() (*Config, error) {
 }
 
 func (c *Config) Validate() error {
-	if c.DestinationHost == "" {
-		return fmt.Errorf("destinationHost cannot be empty")
+	if c.DestinationLiveKitURL == "" {
+		return fmt.Errorf("destinationLiveKitUrl cannot be empty")
 	}
 	// Add custom validation logic here
 	return nil

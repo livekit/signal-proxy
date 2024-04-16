@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 
+	protoLogger "github.com/livekit/protocol/logger"
+	lksdk "github.com/livekit/server-sdk-go/v2"
 	"github.com/livekit/signal-proxy/pkg/config"
 	"github.com/livekit/signal-proxy/pkg/server"
 	"github.com/livekit/signal-proxy/pkg/test_utils"
@@ -25,12 +27,13 @@ func Test_BasicNoProxy(t *testing.T) {
 }
 
 func Test_HappyProxy(t *testing.T) {
+
 	docker := test_utils.NewDocker("../test/docker/docker-compose.yml")
 	err := docker.Up()
 	defer docker.Down()
 	require.NoError(t, err, "docker up should succeed")
 
-	proxy := server.NewServer(&config.Config{DestinationHost: "localhost:7880", Port: 9000})
+	proxy := server.NewServer(&config.Config{DestinationLiveKitURL: "ws://localhost:7880", Port: 9000})
 	defer proxy.Stop()
 
 	participant, err := test_utils.NewLiveKitParticipant(9000, "../test/media/audio_track.ogg", false)
@@ -47,12 +50,28 @@ func Test_HappyProxy(t *testing.T) {
 }
 
 func Test_ForceRelayHappy(t *testing.T) {
+	logger, _ := protoLogger.NewZapLogger(&protoLogger.Config{
+		Level: "debug",
+	})
+	lksdk.SetLogger(logger)
 	docker := test_utils.NewDocker("../test/docker/docker-compose.yml")
 	err := docker.Up()
-	defer docker.Down()
+	// defer docker.Down()
 	require.NoError(t, err, "docker up should succeed")
 
-	proxy := server.NewServer(&config.Config{DestinationHost: "localhost:7880", Port: 9000})
+	proxy := server.NewServer(&config.Config{
+		DestinationLiveKitURL: "ws://localhost:7880",
+		Port:                  9000,
+		ICEServers: []config.ICEServer{
+			{
+				Urls:       []string{"turn:127.0.0.1:3478?transport=udp"},
+				Username:   "foo",
+				Credential: "bar",
+			},
+			{
+				Urls: []string{"stun:stun.l.google.com:19302"},
+			},
+		}})
 	defer proxy.Stop()
 
 	participant, err := test_utils.NewLiveKitParticipant(9000, "../test/media/audio_track.ogg", true)
@@ -74,7 +93,7 @@ func Test_ForceRelayNoTurn(t *testing.T) {
 	defer docker.Down()
 	require.NoError(t, err, "docker up should succeed")
 
-	proxy := server.NewServer(&config.Config{DestinationHost: "localhost:7880", Port: 9000})
+	proxy := server.NewServer(&config.Config{DestinationLiveKitURL: "ws://localhost:7880", Port: 9000})
 	defer proxy.Stop()
 
 	participant, err := test_utils.NewLiveKitParticipant(9000, "../test/media/audio_track.ogg", true)
