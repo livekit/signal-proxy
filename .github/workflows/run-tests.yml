@@ -20,7 +20,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.18'  # Replace this with the version of Go you are using
+        go-version: '1.22.1'  # Replace this with the version of Go you are using
 
     - name: Install Docker Engine
       run: |
