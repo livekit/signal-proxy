@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master # publish to 'master' tag
+      - main
     tags:
       - 'v*.*.*' # publish on version tags, updates 'latest' tag
 jobs:
