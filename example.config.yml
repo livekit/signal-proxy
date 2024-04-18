@@ -1,0 +1,7 @@
+destination_livekit_url: "wss://<your livekit url>.livekit.cloud"
+port: 9000
+ice_servers:
+  - urls:
+      - "turn:<your turn server url>:3478"
+    username: "<your turn server username>"
+    credential: "<your turn server password>"

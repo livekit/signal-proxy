@@ -12,23 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package version
 
-import (
-	"log"
-
-	"github.com/livekit/signal-proxy/pkg/config"
-	"github.com/livekit/signal-proxy/pkg/server"
-)
-
-func main() {
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		panic(err)
-	}
-
-	log.Printf("loaded config: %+v", cfg)
-
-	server := server.NewServer(cfg)
-	server.Run()
-}
+const Version = "0.0.1"

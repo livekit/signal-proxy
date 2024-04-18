@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit-signal-proxy
+  labels:
+    app: livekit-signal-proxy
+spec:
+  replicas: 1  # You can adjust the number of replicas as needed
+  selector:
+    matchLabels:
+      app: livekit-signal-proxy
+  template:
+    metadata:
+      labels:
+        app: livekit-signal-proxy
+    spec:
+      containers:
+      - name: livekit-signal-proxy
+        image: # your image here
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/livekit
+        env:
+        - name: LK_CONFIG_FILE
+          value: /etc/livekit
+      volumes:
+      - name: config-volume
+        configMap:
+          name: configmap 
+      nodeSelector:
+        agentpool: # your agent pool here
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap
+data:
+  config.yaml: |
+    destination_livekit_url: wss://<your livekit url>.livekit.cloud 
+    port: 9000
+    ice_servers:
+      - urls:
+        - "turn:<your turn server url>:3478"
+        username: "<your turn server username>"
+        credential: "<your turn server password>"
+
+# For common cloud deployments that support LoadBalancer services
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit-signal-proxy
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 9000 
+    targetPort: 9000 
+    protocol: TCP
+    name: http
+  selector:
+    app: livekit-signal-proxy

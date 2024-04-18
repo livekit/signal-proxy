@@ -1,10 +1,22 @@
+// Copyright 2024 LiveKit, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
 	"testing"
 
-	protoLogger "github.com/livekit/protocol/logger"
-	lksdk "github.com/livekit/server-sdk-go/v2"
 	"github.com/livekit/signal-proxy/pkg/config"
 	"github.com/livekit/signal-proxy/pkg/server"
 	"github.com/livekit/signal-proxy/pkg/test_utils"
@@ -50,13 +62,9 @@ func Test_HappyProxy(t *testing.T) {
 }
 
 func Test_ForceRelayHappy(t *testing.T) {
-	logger, _ := protoLogger.NewZapLogger(&protoLogger.Config{
-		Level: "debug",
-	})
-	lksdk.SetLogger(logger)
 	docker := test_utils.NewDocker("../test/docker/docker-compose.yml")
 	err := docker.Up()
-	// defer docker.Down()
+	defer docker.Down()
 	require.NoError(t, err, "docker up should succeed")
 
 	proxy := server.NewServer(&config.Config{

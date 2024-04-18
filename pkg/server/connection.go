@@ -1,3 +1,17 @@
+// Copyright 2024 LiveKit, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -46,7 +60,6 @@ func NewConnection(
 func (c *Connection) Run() error {
 	conn, err := upgrader.Upgrade(c.writer, c.request, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
 		return err
 	}
 	defer conn.Close()
@@ -84,8 +97,7 @@ func (c *Connection) Run() error {
 	}
 
 	if destErr != nil {
-		log.Println("Error connecting to destination:", destErr)
-		return destErr
+		return fmt.Errorf("error connecting to destination: %w", destErr)
 	}
 	defer destConn.Close()
 
@@ -104,12 +116,12 @@ func (c *Connection) copyServerMessages(dst, src *websocket.Conn) {
 
 		newMessage, err := c.modifyServerMessage(message)
 		if err != nil {
-			print("Error modifying message")
+			log.Printf("Error modifying message: %v", err)
 			break
 		}
 
 		if err := dst.WriteMessage(mt, newMessage); err != nil {
-			print("Error writing message to destination")
+			log.Printf("Error writing message to destination: %v", err)
 			break
 		}
 	}
