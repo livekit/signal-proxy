@@ -15,7 +15,9 @@
 package main
 
 import (
+	"os"
 	"testing"
+	"time"
 
 	"github.com/livekit/signal-proxy/pkg/config"
 	"github.com/livekit/signal-proxy/pkg/server"
@@ -24,12 +26,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_BasicNoProxy(t *testing.T) {
+func TestMain(m *testing.M) {
 	docker := test_utils.NewDocker("../test/docker/docker-compose.yml")
 	err := docker.Up()
-	defer docker.Down()
-	require.NoError(t, err, "docker up should succeed")
+	if err != nil {
+		println("Failed to start docker")
+		os.Exit(1)
+	}
 
+	// Run the tests
+	code := m.Run()
+
+	os.Exit(code)
+}
+
+func Test_BasicNoProxy(t *testing.T) {
 	participant, err := test_utils.NewLiveKitParticipant(7880, "../test/media/audio_track.ogg", false)
 	defer participant.Disconnect()
 	require.NoError(t, err, "participant create successfully")
@@ -39,16 +50,10 @@ func Test_BasicNoProxy(t *testing.T) {
 }
 
 func Test_HappyProxy(t *testing.T) {
-
-	docker := test_utils.NewDocker("../test/docker/docker-compose.yml")
-	err := docker.Up()
-	defer docker.Down()
-	require.NoError(t, err, "docker up should succeed")
-
-	proxy := server.NewServer(&config.Config{DestinationLiveKitURL: "ws://localhost:7880", Port: 9000})
+	proxy := server.NewServer(&config.Config{DestinationLiveKitURL: "ws://localhost:7880", Port: 9001})
 	defer proxy.Stop()
 
-	participant, err := test_utils.NewLiveKitParticipant(9000, "../test/media/audio_track.ogg", false)
+	participant, err := test_utils.NewLiveKitParticipant(9001, "../test/media/audio_track.ogg", false)
 	defer participant.Disconnect()
 	require.NoError(t, err, "participant create successfully")
 
@@ -57,19 +62,15 @@ func Test_HappyProxy(t *testing.T) {
 		assert.NoError(t, err, "proxy server should run successfully")
 	}()
 
+	time.Sleep(1 * time.Second)
 	err = participant.ConnectAndPublish()
 	assert.NoError(t, err, "participant should connect successfully")
 }
 
 func Test_ForceRelayHappy(t *testing.T) {
-	docker := test_utils.NewDocker("../test/docker/docker-compose.yml")
-	err := docker.Up()
-	defer docker.Down()
-	require.NoError(t, err, "docker up should succeed")
-
 	proxy := server.NewServer(&config.Config{
 		DestinationLiveKitURL: "ws://localhost:7880",
-		Port:                  9000,
+		Port:                  9002,
 		ICEServers: []config.ICEServer{
 			{
 				Urls:       []string{"turn:127.0.0.1:3478?transport=udp"},
@@ -82,7 +83,7 @@ func Test_ForceRelayHappy(t *testing.T) {
 		}})
 	defer proxy.Stop()
 
-	participant, err := test_utils.NewLiveKitParticipant(9000, "../test/media/audio_track.ogg", true)
+	participant, err := test_utils.NewLiveKitParticipant(9002, "../test/media/audio_track.ogg", true)
 	defer participant.Disconnect()
 	require.NoError(t, err, "participant create successfully")
 
@@ -91,20 +92,16 @@ func Test_ForceRelayHappy(t *testing.T) {
 		assert.NoError(t, err, "proxy server should run successfully")
 	}()
 
+	time.Sleep(1 * time.Second)
 	err = participant.ConnectAndPublish()
 	assert.NoError(t, err, "participant should connect successfully")
 }
 
 func Test_ForceRelayNoTurn(t *testing.T) {
-	docker := test_utils.NewDocker("../test/docker/docker-compose.yml")
-	err := docker.Up()
-	defer docker.Down()
-	require.NoError(t, err, "docker up should succeed")
-
-	proxy := server.NewServer(&config.Config{DestinationLiveKitURL: "ws://localhost:7880", Port: 9000})
+	proxy := server.NewServer(&config.Config{DestinationLiveKitURL: "ws://localhost:7880", Port: 9003})
 	defer proxy.Stop()
 
-	participant, err := test_utils.NewLiveKitParticipant(9000, "../test/media/audio_track.ogg", true)
+	participant, err := test_utils.NewLiveKitParticipant(9003, "../test/media/audio_track.ogg", true)
 	defer participant.Disconnect()
 	require.NoError(t, err, "participant create successfully")
 
@@ -113,6 +110,7 @@ func Test_ForceRelayNoTurn(t *testing.T) {
 		assert.NoError(t, err, "proxy server should run successfully")
 	}()
 
+	time.Sleep(1 * time.Second)
 	err = participant.ConnectAndPublish()
 	assert.Error(t, err, "participant should not connect successfully")
 }
