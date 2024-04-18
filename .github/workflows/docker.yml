@@ -46,12 +46,6 @@ jobs:
       - name: Download Go modules
         run: go mod download
 
-      - name: Generate code
-        uses: magefile/mage-action@v3
-        with:
-          version: latest
-          args: generate
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
